@@ -3,8 +3,11 @@ let app = express();
 let http = require('http').Server(app);
 let io = require('socket.io')(http);
 
-const rooms = {};
+const rooms = {
+  'lobby': true
+};
 io.on('connection', function(socket) {
+  socket.join('lobby');
   socket.emit('you', socket.id);
   socket.emit('rooms', rooms);
 
@@ -15,10 +18,12 @@ io.on('connection', function(socket) {
       socket.join(room);
       rooms[room] = true;
       socket.emit('room created');
+      socket.broadcast.to('lobby').emit('new room', room);
     }
   });
 
   socket.on('join', function(room) {
+    socket.leave('lobby');
     socket.join(room);
     socket.broadcast.to(room).emit('joined', socket.id);
   });
