@@ -1,4 +1,5 @@
 let express = require('express');
+const path = require('path');
 let app = express();
 let http = require('http').Server(app);
 let io = require('socket.io')(http);
@@ -32,6 +33,8 @@ io.on('connection', function(socket) {
     socket.broadcast.to(room).emit('broadcast', buffer);
   });
 });
+
+app.use(express.static(path.join(__dirname, 'public')));
 
 const port = 3000;
 http.listen(port, function() {
