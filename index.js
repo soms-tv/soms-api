@@ -20,6 +20,7 @@ io.on('connection', function(socket) {
       socket.join(room);
       rooms[room] = [socket.id];
       socket.emit('room created');
+      socket.emit('others', rooms[room]);
       socket.broadcast.to('lobby').emit('new room', room);
     }
   });
