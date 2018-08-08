@@ -1,61 +1,40 @@
-let express = require('express');
-const path = require('path');
-let app = express();
-let http = require('http').Server(app);
-let io = require('socket.io')(http);
+const fs = require('fs');
+const https = require('https');
+const WebSocket = require('ws');
+const winston = require('winston');
 
-const rooms = {
-  'lobby': []
-};
-io.on('connection', function(socket) {
-  socket.join('lobby');
-  socket.emit('you', socket.id);
-  socket.emit('rooms', rooms);
+const logger = winston.createLogger({
+  level: 'debug',
+  transports: [
+    new winston.transports.Console()
+  ]
+});
 
-  socket.on('room', function(room) {
-    if (rooms[room]) {
-      socket.emit('room exists');
-    } else {
-      socket.leave('lobby');
-      socket.join(room);
-      rooms[room] = [socket.id];
-      socket.emit('room created');
-      socket.emit('others', rooms[room]);
-      socket.broadcast.to('lobby').emit('new room', room);
-    }
-  });
+const server = new https.createServer({
+  cert: fs.readFileSync('cert.pem'),
+  key: fs.readFileSync('key.pem')
+});
 
-  socket.on('join', function(room) {
-    if (!rooms[room]) {
-      socket.emit('room does not exist');
-      return;
-    }
-    socket.leave('lobby');
-    rooms[room].push(socket.id);
-    socket.join(room);
-    socket.emit('others', rooms[room]);
-    socket.broadcast.to(room).emit('joined', socket.id);
-  });
+const wss = new WebSocket.Server({ 'server': server });
 
-  socket.on('send', function(room, tag, buffer) {
-    socket.broadcast.to(room).emit('broadcast', tag, buffer);
-  });
+const somsKeyPrefixLength = 'soms-key: '.length;
+wss.on('connection', function(ws) {
+  ws.on('message', function(message) {
+    logger.debug('received: ' + message);
+    if (typeof message === 'string') {
+      if (message.indexOf('soms-key: ') === 0) {
+        const key = message.slice(somsKeyPrefixLength);
 
-  socket.on('disconnect', function() {
-    for (let room of Object.keys(rooms)) {
-      let roomMembers = rooms[room];
-      for(let i = roomMembers.length - 1; i >= 0; i--) {
-        if(roomMembers[i] === socket.id) {
-           roomMembers.splice(i, 1);
-        }
+        logger.debug('key: ' + key);
+
+        ws.send('soms accept')
       }
+    } else {
+
     }
   });
+
+  ws.send('soms requesting key');
 });
 
-app.use(express.static(path.join(__dirname, 'public')));
-
-const port = 3000;
-http.listen(port, function() {
-  console.log(`Started websocket server on port ${port}`);
-});
+server.listen(8080);
