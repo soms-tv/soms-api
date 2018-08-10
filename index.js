@@ -85,24 +85,29 @@ const messageHandlers = {
     if (!req.name || req.name.length === 0) {
       return;
     }
-    if (!req.password) {
+    if (req.password === null || req.password === undefined) {
       return;
     }
     try {
       createRoom(req.name, req.password, ws);
+      ws.send('room created');
     } catch (err) {
-      logger.error(err);
+      logger.error(err.message);
     }
   },
   'join-room': function(ws, req) {
-    const room = rooms[req.room];
+    const room = rooms[req.name];
     if (!room) {
       return;
     }
     try {
       joinRoom(room, ws, req.password);
+      ws.send('room joined');
     } catch (err) {
-      logger.error(err);
+      logger.error(err.message);
+      if (err.message === 'Wrong password') {
+        ws.send('wrong room password');
+      }
     }
   }
 };
@@ -137,7 +142,7 @@ wss.on('connection', function(ws) {
         try {
           messageHandlers[keyword](ws, JSON.parse(data));
         } catch (err) {
-          logger.error(err);
+          logger.error(err.message);
         }
       }
     } else {
